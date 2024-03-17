@@ -56,7 +56,7 @@ Sub ExportDrawingDimensions(draw As SldWorks.DrawingDoc)
     Open filePath For Output As #fileNmb
     
     Dim header As String
-    header = Join("Name", "Owner", "Type", "X", "Y", "Value", "Grid Ref", "Tolerance", "Min", "Max", "View Type")
+    header = Join("Name", "Owner", "Type", "X", "Y", "Value", "Grid Ref", "Tolerance", "Min", "Max", "View Type", "model2view rotation", "translation", "scale", "model")
 
     Print #fileNmb, header
     
@@ -96,7 +96,8 @@ Sub ExportViewDimensions(view As SldWorks.view, draw As SldWorks.DrawingDoc, fil
     If swSheet Is Nothing Then
         Set swSheet = draw.Sheet(view.Name)
     End If
-    
+
+            
     While Not swDispDim Is Nothing
         
         Dim swAnn As SldWorks.Annotation
@@ -116,11 +117,16 @@ Sub ExportViewDimensions(view As SldWorks.view, draw As SldWorks.DrawingDoc, fil
         Dim minVal As Double
         Dim maxVal As Double
         
+        Dim rotation3x3 As String
+        Dim translation1x3 As String
+        Dim scale1x1 As String
+        
         GetDimensionTolerance draw, swDim, tolType, minVal, maxVal
+        GetViewXForm view, rotation3x3, translation1x3, scale1x1
         
         OutputDimensionData fileNmb, swDim.FullName, view.Name, GetDimensionType(swDispDim), CDbl(vPos(0)), CDbl(vPos(1)), _
                 CDbl(swDim.GetValue3(swInConfigurationOpts_e.swThisConfiguration, Empty)(0)), _
-                drwZone, tolType, minVal, maxVal, GetViewType(view)
+                drwZone, tolType, minVal, maxVal, GetViewType(view), rotation3x3, translation1x3, scale1x1, GetViewModelName(view)
         
         Set swDispDim = swDispDim.GetNext5
         
@@ -213,6 +219,47 @@ Function GetViewType(view As SldWorks.view) As String
     
 End Function
 
+Function GetViewModelName(view As SldWorks.view) As String
+
+    Dim swDrawModel As SldWorks.ModelDoc2
+
+    Set swDrawModel = view.ReferencedDocument
+    If swDrawModel Is Nothing Then
+        GetViewModelName = ""
+    Else
+        GetViewModelName = view.GetReferencedModelName
+    End If
+
+
+End Function
+
+
+Sub GetViewXForm(view As SldWorks.view, rotation3x3 As String, translation1x3 As String, scale1x1 As String)
+    
+    Dim xForm As Variant
+    xForm = view.GetViewXForm()
+    
+    rotation3x3 = ""
+    translation1x3 = ""
+    scale1x1 = ""
+    For j = 0 To 8
+        Dim elem As Double
+        elem = CStr(xForm(j))
+        rotation3x3 = rotation3x3 & " " & elem
+    Next j
+
+    For j = 9 To 11
+        elem = CStr(xForm(j))
+        translation1x3 = translation1x3 & " " & elem
+    Next j
+
+
+    scale1x1 = CStr(xForm(12))
+
+    
+End Sub
+
+
 Sub GetDimensionTolerance(draw As SldWorks.DrawingDoc, swDim As SldWorks.Dimension, ByRef tolType As String, ByRef minVal As Double, ByRef maxVal As Double)
 
     Dim swTol As SldWorks.DimensionTolerance
@@ -263,11 +310,12 @@ Sub GetDimensionTolerance(draw As SldWorks.DrawingDoc, swDim As SldWorks.Dimensi
     
 End Sub
 
-Sub OutputDimensionData(fileNmb As Integer, dimName As String, owner As String, dimType As String, x As Double, y As Double, value As Double, gridRef As String, tol As String, min As Double, max As Double, viewType As String)
+Sub OutputDimensionData(fileNmb As Integer, dimName As String, owner As String, dimType As String, x As Double, y As Double, value As Double, gridRef As String, tol As String, min As Double, max As Double, viewType As String, rotation3x3 As String, translation1x3 As String, scale1x1 As String, modelName As String)
     
     Dim line As String
-    line = Join(dimName, owner, dimType, x, y, value, gridRef, tol, min, max, viewType)
-
+    
+    line = Join(dimName, owner, dimType, x, y, value, gridRef, tol, min, max, viewType, rotation3x3, translation1x3, scale1x1, modelName)
+    
     Print #fileNmb, line
     
 End Sub
